@@ -77,7 +77,7 @@ canvas#game{display:block;width:100%;height:100%;background:#121f18;touch-action
 
 @media (min-width: 760px) {
  .side-panel{
-  width:316px;
+  width:324px;
   height:100%;
   padding:4px 2px;
  }
@@ -126,27 +126,46 @@ canvas#game{display:block;width:100%;height:100%;background:#121f18;touch-action
 
 .sub-instruments{
  display:grid;
- grid-template-columns:1fr 1fr;
+ grid-template-columns:1.25fr 1fr;
  gap:8px;
  align-items:center;
 }
-.record-box{
+.dials-pair{
+ display:flex;
+ align-items:flex-end;
+ justify-content:center;
+ gap:8px;
+}
+.record-box, .pressure-box{
  display:flex;
  flex-direction:column;
  align-items:center;
  gap:4px;
 }
 .record-box canvas{
- width:76px;
- height:76px;
+ width:74px;
+ height:74px;
+ display:block;
+}
+.pressure-box canvas{
+ width:56px;
+ height:56px;
+ display:block;
+}
+.dial-caption{
+ font:bold 7.5px "Courier New",monospace;
+ color:#c0a477;
+ letter-spacing:0.5px;
+ text-transform:uppercase;
 }
 .mech-readout{
- font:bold 11px "Courier New",monospace;
+ font:bold 10.5px "Courier New",monospace;
  color:#f0d18a;
  background:#120d08;
  border:1px solid #8c632e;
  padding:2px 6px;
  letter-spacing:1px;
+ white-space:nowrap;
 }
 
 .balls-status-box{
@@ -229,7 +248,8 @@ button.muted{opacity:0.55;filter:grayscale(0.4)}
  .plate-title{display:none}
  .gauges-row{max-width:270px;margin:0 auto}
  .sub-instruments{grid-template-columns:auto 1fr;gap:6px}
- .record-box canvas{width:54px;height:54px}
+ .record-box canvas{width:52px;height:52px}
+ .pressure-box canvas{width:40px;height:40px}
  .controls{display:flex;flex-wrap:nowrap;gap:4px}
  .controls button{flex:1 1 auto;padding:6px 4px;font-size:8px}
 }
@@ -269,10 +289,12 @@ footer{
  padding-top:4px;
  display:flex;
  justify-content:space-between;
- gap:8px;
+ align-items:center;
+ gap:6px;
  color:#a88a5d;
- font:8px "Courier New",monospace;
- letter-spacing:1px;
+ font:7.5px "Courier New",monospace;
+ letter-spacing:0.6px;
+ white-space:nowrap;
 }
 </style>
 </head>
@@ -306,9 +328,15 @@ footer{
   <div class="panel-plate">
    <div class="plate-title">Record &amp; Pressione</div>
    <div class="sub-instruments">
-    <div class="record-box">
-     <canvas id="gBest" width="110" height="110"></canvas>
-     <div class="mech-readout" id="bestText">REC 000000</div>
+    <div class="dials-pair">
+     <div class="record-box">
+      <canvas id="gBest" width="110" height="110"></canvas>
+      <div class="mech-readout" id="bestText">REC 000000</div>
+     </div>
+     <div class="pressure-box">
+      <canvas id="gPress" width="84" height="84"></canvas>
+      <span class="dial-caption">BAR</span>
+     </div>
     </div>
     <div class="balls-status-box">
      <div style="font:8px 'Courier New',monospace;color:#c0a477;letter-spacing:1px">SFERE IN RISERVA</div>
@@ -347,7 +375,7 @@ footer{
 
   <div class="bottom-credits">
    <div class="music-credit">Music by Joe Baxter-Webb (BossLevelVGM)</div>
-   <footer><span>OFFICINA DEGLI ENIGMI · N° 002</span><span>Versione 1.9 – 1894</span></footer>
+   <footer><span>OFFICINA DEGLI ENIGMI · N° 002</span><span>Versione 1.10 – 1894</span></footer>
   </div>
  </aside>
 </main>
@@ -383,8 +411,15 @@ const bestGauge = {
  currentVal: 0,
  targetVal: 0
 };
+const pressGauge = {
+ canvas: $('gPress'),
+ ctx: $('gPress').getContext('2d'),
+ currentVal: 0,
+ targetVal: 0
+};
 
-function drawAnalogDial(gCtx, size, value, maxVal, isRecord = false) {
+// Manometro standard per le singole cifre del punteggio (0-9 con finestrella meccanica)
+function drawDigitDial(gCtx, size, value) {
  const cx = size / 2, cy = size / 2, r = size * 0.44;
  gCtx.clearRect(0, 0, size, size);
 
@@ -430,61 +465,201 @@ function drawAnalogDial(gCtx, size, value, maxVal, isRecord = false) {
   gCtx.lineTo(cx + cos * (r * 0.92), cy + sin * (r * 0.92));
   gCtx.stroke();
 
-  const label = isRecord ? (i === 9 ? '1M' : String(i)) : String(i);
-  gCtx.fillText(label, cx + cos * (r * 0.56), cy + sin * (r * 0.56));
+  gCtx.fillText(String(i), cx + cos * (r * 0.56), cy + sin * (r * 0.56));
  }
 
- if (!isRecord) {
-  const digit = Math.floor(value + 0.05) % 10;
-  const boxW = size * 0.25;
-  const boxH = size * 0.22;
-  const boxTop = cy + r * 0.38;
-  const boxCenterY = boxTop + boxH / 2;
+ const digit = Math.floor(value + 0.05) % 10;
+ const boxW = size * 0.25;
+ const boxH = size * 0.22;
+ const boxTop = cy + r * 0.38;
+ const boxCenterY = boxTop + boxH / 2;
 
-  gCtx.fillStyle = '#1b120a';
-  gCtx.fillRect(cx - boxW / 2, boxTop, boxW, boxH);
-  gCtx.strokeStyle = '#8c632e';
-  gCtx.lineWidth = 1.2;
-  gCtx.strokeRect(cx - boxW / 2, boxTop, boxW, boxH);
+ gCtx.fillStyle = '#1b120a';
+ gCtx.fillRect(cx - boxW / 2, boxTop, boxW, boxH);
+ gCtx.strokeStyle = '#8c632e';
+ gCtx.lineWidth = 1.2;
+ gCtx.strokeRect(cx - boxW / 2, boxTop, boxW, boxH);
 
-  gCtx.save();
-  gCtx.fillStyle = '#f5d996';
-  gCtx.textAlign = 'center';
-  gCtx.textBaseline = 'middle';
-  gCtx.font = `bold ${Math.round(size * 0.145)}px "Courier New", monospace`;
-  gCtx.fillText(String(digit), cx, boxCenterY + 1.2);
-  gCtx.restore();
+ gCtx.save();
+ gCtx.fillStyle = '#f5d996';
+ gCtx.textAlign = 'center';
+ gCtx.textBaseline = 'middle';
+ gCtx.font = `bold ${Math.round(size * 0.145)}px "Courier New", monospace`;
+ gCtx.fillText(String(digit), cx, boxCenterY + 1.2);
+ gCtx.restore();
+
+ const clamped = Math.max(0, Math.min(9, value));
+ const needleAng = startAng + (clamped / 9) * sweep;
+ drawNeedle(gCtx, cx, cy, r, needleAng, '#1c140d', size * 0.065);
+}
+
+// Manometro Logaritmico per il Record (scala da 10 a 1M: 0, 100, 1K, 10K, 100K, 1M)
+function drawRecordLogDial(gCtx, size, logPos) {
+ const cx = size / 2, cy = size / 2, r = size * 0.44;
+ gCtx.clearRect(0, 0, size, size);
+
+ const brassGrad = gCtx.createLinearGradient(0, 0, size, size);
+ brassGrad.addColorStop(0, '#f5d996');
+ brassGrad.addColorStop(0.5, '#a87938');
+ brassGrad.addColorStop(1, '#4d3214');
+ gCtx.fillStyle = brassGrad;
+ gCtx.beginPath();
+ gCtx.arc(cx, cy, r + size * 0.05, 0, Math.PI * 2);
+ gCtx.fill();
+
+ const faceGrad = gCtx.createRadialGradient(cx - r*0.2, cy - r*0.2, r*0.1, cx, cy, r);
+ faceGrad.addColorStop(0, '#fbf1dc');
+ faceGrad.addColorStop(0.8, '#e3cfa6');
+ faceGrad.addColorStop(1, '#b89b68');
+ gCtx.fillStyle = faceGrad;
+ gCtx.beginPath();
+ gCtx.arc(cx, cy, r, 0, Math.PI * 2);
+ gCtx.fill();
+ gCtx.strokeStyle = '#3b2814';
+ gCtx.lineWidth = 1.5;
+ gCtx.stroke();
+
+ const startAng = Math.PI * 0.75;
+ const sweep = Math.PI * 1.5;
+ const labels = ['0', '100', '1K', '10K', '100K', '1M'];
+
+ gCtx.fillStyle = '#23170d';
+ gCtx.strokeStyle = '#23170d';
+ gCtx.textAlign = 'center';
+ gCtx.textBaseline = 'middle';
+ gCtx.font = `bold ${Math.round(size * 0.095)}px "Courier New", monospace`;
+
+ // 6 tacche principali logaritmiche (0..5) + tacche intermedie
+ for (let i = 0; i <= 10; i++) {
+  const frac = i / 10;
+  const ang = startAng + frac * sweep;
+  const cos = Math.cos(ang), sin = Math.sin(ang);
+  const isMajor = i % 2 === 0;
+
+  gCtx.lineWidth = isMajor ? 1.6 : 0.9;
+  gCtx.beginPath();
+  gCtx.moveTo(cx + cos * (r * (isMajor ? 0.74 : 0.81)), cy + sin * (r * (isMajor ? 0.74 : 0.81)));
+  gCtx.lineTo(cx + cos * (r * 0.92), cy + sin * (r * 0.92));
+  gCtx.stroke();
+
+  if (isMajor) {
+   const lbl = labels[i / 2];
+   gCtx.fillText(lbl, cx + cos * (r * 0.54), cy + sin * (r * 0.54));
+  }
  }
 
- const clamped = Math.max(0, Math.min(maxVal, value));
- const needleAng = startAng + (clamped / maxVal) * sweep;
+ gCtx.fillStyle = '#6e4d29';
+ gCtx.font = `bold ${Math.round(size * 0.075)}px "Courier New", monospace`;
+ gCtx.fillText('LOG', cx, cy + r * 0.58);
+
+ const clamped = Math.max(0, Math.min(5, logPos));
+ const needleAng = startAng + (clamped / 5) * sweep;
+ drawNeedle(gCtx, cx, cy, r, needleAng, '#8f241e', size * 0.065);
+}
+
+// Manometro più piccolo per la Pressione del Pistone (0-100%)
+function drawPressureDial(gCtx, size, pct) {
+ const cx = size / 2, cy = size / 2, r = size * 0.43;
+ gCtx.clearRect(0, 0, size, size);
+
+ const brassGrad = gCtx.createLinearGradient(0, 0, size, size);
+ brassGrad.addColorStop(0, '#f5d996');
+ brassGrad.addColorStop(0.5, '#a87938');
+ brassGrad.addColorStop(1, '#4d3214');
+ gCtx.fillStyle = brassGrad;
+ gCtx.beginPath();
+ gCtx.arc(cx, cy, r + size * 0.055, 0, Math.PI * 2);
+ gCtx.fill();
+
+ const faceGrad = gCtx.createRadialGradient(cx - r*0.2, cy - r*0.2, r*0.1, cx, cy, r);
+ faceGrad.addColorStop(0, '#fbf1dc');
+ faceGrad.addColorStop(0.8, '#e3cfa6');
+ faceGrad.addColorStop(1, '#b89b68');
+ gCtx.fillStyle = faceGrad;
+ gCtx.beginPath();
+ gCtx.arc(cx, cy, r, 0, Math.PI * 2);
+ gCtx.fill();
+ gCtx.strokeStyle = '#3b2814';
+ gCtx.lineWidth = 1.3;
+ gCtx.stroke();
+
+ const startAng = Math.PI * 0.75;
+ const sweep = Math.PI * 1.5;
+
+ // Arco colorato: verde/ottone sopra il 60% (soglia di uscita dalla corsia)
+ gCtx.save();
+ gCtx.strokeStyle = '#9e2a22';
+ gCtx.lineWidth = size * 0.055;
+ gCtx.beginPath();
+ gCtx.arc(cx, cy, r * 0.82, startAng + sweep * 0.60, startAng + sweep);
+ gCtx.stroke();
+ gCtx.restore();
+
+ gCtx.fillStyle = '#23170d';
+ gCtx.strokeStyle = '#23170d';
+ gCtx.textAlign = 'center';
+ gCtx.textBaseline = 'middle';
+ gCtx.font = `bold ${Math.round(size * 0.11)}px "Courier New", monospace`;
+
+ const marks = ['0', '20', '40', '60', '80', '100'];
+ for (let i = 0; i <= 10; i++) {
+  const frac = i / 10;
+  const ang = startAng + frac * sweep;
+  const cos = Math.cos(ang), sin = Math.sin(ang);
+  const isMajor = i % 2 === 0;
+
+  gCtx.lineWidth = isMajor ? 1.4 : 0.8;
+  gCtx.beginPath();
+  gCtx.moveTo(cx + cos * (r * (isMajor ? 0.72 : 0.80)), cy + sin * (r * (isMajor ? 0.72 : 0.80)));
+  gCtx.lineTo(cx + cos * (r * 0.92), cy + sin * (r * 0.92));
+  gCtx.stroke();
+
+  if (isMajor) {
+   gCtx.fillText(marks[i / 2], cx + cos * (r * 0.50), cy + sin * (r * 0.50));
+  }
+ }
+
+ const clamped = Math.max(0, Math.min(100, pct));
+ const needleAng = startAng + (clamped / 100) * sweep;
+ drawNeedle(gCtx, cx, cy, r, needleAng, '#1f4d2e', size * 0.075);
+}
+
+function drawNeedle(gCtx, cx, cy, r, angle, color, pivotR) {
  gCtx.save();
  gCtx.translate(cx, cy);
- gCtx.rotate(needleAng);
+ gCtx.rotate(angle);
 
  gCtx.fillStyle = 'rgba(0,0,0,0.28)';
  gCtx.beginPath();
- gCtx.moveTo(-r * 0.22, 2);
- gCtx.lineTo(r * 0.84, 2);
- gCtx.lineTo(-r * 0.22, 4);
+ gCtx.moveTo(-r * 0.22, 1.8);
+ gCtx.lineTo(r * 0.84, 1.8);
+ gCtx.lineTo(-r * 0.22, 3.6);
  gCtx.fill();
 
- gCtx.fillStyle = isRecord ? '#8f241e' : '#1c140d';
+ gCtx.fillStyle = color;
  gCtx.beginPath();
- gCtx.moveTo(-r * 0.22, -2);
+ gCtx.moveTo(-r * 0.22, -1.8);
  gCtx.lineTo(r * 0.84, 0);
- gCtx.lineTo(-r * 0.22, 2);
+ gCtx.lineTo(-r * 0.22, 1.8);
  gCtx.closePath();
  gCtx.fill();
  gCtx.restore();
 
  gCtx.fillStyle = '#c49a55';
  gCtx.strokeStyle = '#2b1c0e';
- gCtx.lineWidth = 1.2;
+ gCtx.lineWidth = 1.1;
  gCtx.beginPath();
- gCtx.arc(cx, cy, size * 0.065, 0, Math.PI * 2);
+ gCtx.arc(cx, cy, pivotR, 0, Math.PI * 2);
  gCtx.fill();
  gCtx.stroke();
+}
+
+// Mappatura logaritmica del Record su scala 0..5:
+// 0 -> 0 | 100 -> 1 | 1.000 -> 2 | 10.000 -> 3 | 100.000 -> 4 | 1.000.000 -> 5
+function bestToLogScale(val) {
+ if (val <= 0) return 0;
+ if (val < 100) return (val / 100) * 1.0; // transizione fluida da 0 a 100 punti
+ return Math.min(5, Math.log10(val) - 1);
 }
 
 function updateGauges(dt) {
@@ -502,14 +677,23 @@ function updateGauges(dt) {
   const diff = g.targetVal - g.currentVal;
   if (Math.abs(diff) < 0.01) g.currentVal = g.targetVal;
   else g.currentVal += diff * Math.min(1, dt * 14);
-  drawAnalogDial(g.ctx, g.canvas.width, g.currentVal, 9, false);
+  drawDigitDial(g.ctx, g.canvas.width, g.currentVal);
  });
 
- bestGauge.targetVal = Math.min(9, best / 100000);
+ // Record su scala logaritmica
+ bestGauge.targetVal = bestToLogScale(best);
  const bDiff = bestGauge.targetVal - bestGauge.currentVal;
- if (Math.abs(bDiff) < 0.01) bestGauge.currentVal = bestGauge.targetVal;
+ if (Math.abs(bDiff) < 0.005) bestGauge.currentVal = bestGauge.targetVal;
  else bestGauge.currentVal += bDiff * Math.min(1, dt * 10);
- drawAnalogDial(bestGauge.ctx, bestGauge.canvas.width, bestGauge.currentVal, 9, true);
+ drawRecordLogDial(bestGauge.ctx, bestGauge.canvas.width, bestGauge.currentVal);
+
+ // Pressione del pistone (0-100%)
+ pressGauge.targetVal = charging ? charge : 0;
+ const pSpeed = charging ? 28 : 18;
+ const pDiff = pressGauge.targetVal - pressGauge.currentVal;
+ if (Math.abs(pDiff) < 0.2) pressGauge.currentVal = pressGauge.targetVal;
+ else pressGauge.currentVal += pDiff * Math.min(1, dt * pSpeed);
+ drawPressureDial(pressGauge.ctx, pressGauge.canvas.width, pressGauge.currentVal);
 }
 
 /* ================= MOTORE AUDIO: MP3 BGM + EFFETTI PROCEDURALI ================= */
@@ -963,7 +1147,6 @@ function triggerNudge(dir){
 function launchStart(){
  if(!running||paused||gameOver)return;
  Sound.init();
- // Consente di ricaricare se la sfera è ancora ferma sul pistone nella corsia di lancio
  if(ball && !ball.inPlay && (!ball.active || (ball.x > 356 && ball.y > 610 && Math.abs(ball.vy) < 0.8))){
   ball.active = false;
   ball.vx = 0;
@@ -977,9 +1160,6 @@ function launchStart(){
 function launchEnd(){
  if(!running||paused||gameOver||!ball||ball.active||!charging)return;
  const ratio = charge / 100;
- // Tocco minimo (0%): velocità 3.2 (non esce dalla corsia)
- // ~60%: velocità ~16.5 (supera l'arco superiore)
- // 100% (fondo corsa): velocità 24.5 (spinta massima)
  const power = 3.2 + Math.pow(ratio, 0.92) * 21.3;
  Sound.playLaunch(ratio);
  ball.x = 373;
@@ -1060,7 +1240,6 @@ function update(dt){
 
  if(!ball)return;
  if(!ball.active){
-  // Compressione progressiva: circa 1.4 secondi per arrivare al 100% (fondo corsa)
   if(charging)charge=Math.min(100,charge+dt*72);
   ball.x=373;
   ball.y=635+charge*0.32;
@@ -1077,7 +1256,6 @@ function update(dt){
   ball.x+=ball.vx*step*60;
   ball.y+=ball.vy*step*60;
 
-  // Appoggio sul pistone nella corsia di lancio se il tiro era corto
   if(!ball.inPlay && ball.x > 356 && ball.y >= 635){
    ball.y = 635;
    ball.x = 373;
@@ -1205,7 +1383,6 @@ function draw(){
  ctx.fillStyle='rgba(12, 20, 16, 0.72)';
  ctx.fillRect(354,135,38,585);
 
- // Pistone e molla compressibile (corsa 32px fino a fondo corsa)
  const compress=charge*0.32;
  ctx.fillStyle='#bd9453';ctx.fillRect(361,685,24,22);
  ctx.fillStyle='#e6c57f';ctx.fillRect(367,646+compress,12,39-compress);
@@ -1305,14 +1482,6 @@ function draw(){
   ctx.fillText('! DANGER !',198,398);
  }
 
- if(charging){
-  ctx.save();
-  ctx.shadowColor='#000';ctx.shadowBlur=4;
-  ctx.fillStyle=charge>=99?'#8ef59b':'#f0d18a';
-  ctx.font='bold 10px "Courier New"';ctx.textAlign='center';
-  ctx.fillText('PRESSIONE '+Math.round(charge)+'%',372,565);
-  ctx.restore();
- }
  ctx.restore();
 }
 
