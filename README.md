@@ -1,6 +1,6 @@
 # Machina Ballistica — Officina degli Enigmi (Macchina N° 002)
 
-![Version](https://img.shields.io/badge/version-1.9-c49a55?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.10-c49a55?style=flat-square)
 ![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-344b3a?style=flat-square)
 ![HTML5](https://img.shields.io/badge/HTML5-Canvas-21170f?style=flat-square)
 ![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-795027?style=flat-square)
