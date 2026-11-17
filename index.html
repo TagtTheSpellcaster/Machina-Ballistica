@@ -284,7 +284,7 @@ footer{
    <canvas id="game" width="440" height="760" aria-label="Tavolo da flipper steampunk"></canvas>
    <div class="overlay" id="overlay">
     <h2>La macchina è pronta</h2>
-    <p>Tieni premuto Carica / Lancia (o Freccia Giù) per comprimere la molla; rilascia per sparare la sfera.</p>
+    <p>Tieni premuto Carica / Lancia (o Freccia Giù) fino a fondo corsa per comprimere la molla; rilascia per sparare la sfera.</p>
     <button class="gold" id="start">Avvia la macchina</button>
    </div>
   </div>
@@ -347,7 +347,7 @@ footer{
 
   <div class="bottom-credits">
    <div class="music-credit">Music by Joe Baxter-Webb (BossLevelVGM)</div>
-   <footer><span>OFFICINA DEGLI ENIGMI · N° 002</span><span>Versione 1.4 – 1894</span></footer>
+   <footer><span>OFFICINA ENIGMI · N° 002</span><span>1894</span></footer>
   </div>
  </aside>
 </main>
@@ -518,13 +518,11 @@ const Sound = (() => {
  let sfxEnabled = true;
  let bgmEnabled = true;
 
- // Traccia musicale esterna in loop (victorianaloop.mp3)
  const bgmAudio = new Audio('victorianaloop.mp3');
  bgmAudio.loop = true;
  bgmAudio.preload = 'auto';
  bgmAudio.volume = 0.42;
 
- // Fallback procedurale nel caso il file MP3 non sia presente nella cartella
  let bgmFallbackFailed = false;
  let bgmTimer = null;
  let stepIdx = 0;
@@ -681,15 +679,15 @@ const Sound = (() => {
   const osc = ctxAudio.createOscillator();
   const gain = ctxAudio.createGain();
   osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(110, now);
-  osc.frequency.exponentialRampToValueAtTime(260 + powerRatio * 180, now + 0.18);
-  gain.gain.setValueAtTime(0.15, now);
+  osc.frequency.setValueAtTime(90 + powerRatio * 40, now);
+  osc.frequency.exponentialRampToValueAtTime(180 + powerRatio * 260, now + 0.16);
+  gain.gain.setValueAtTime(0.08 + powerRatio * 0.12, now);
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
   osc.connect(gain);
   gain.connect(ctxAudio.destination);
   osc.start(now);
   osc.stop(now + 0.23);
-  playNoise(0.28, 1600, 'bandpass', 0.18, 450);
+  playNoise(0.12 + powerRatio * 0.18, 1600, 'bandpass', 0.08 + powerRatio * 0.14, 450);
  }
 
  function playNudge() {
@@ -801,7 +799,6 @@ const Sound = (() => {
   const playPromise = bgmAudio.play();
   if (playPromise !== undefined) {
    playPromise.catch(() => {
-    // Se il file non è raggiungibile o bloccato, attiva il sintetizzatore di riserva
     startFallbackBGM();
    });
   }
@@ -966,17 +963,34 @@ function triggerNudge(dir){
 function launchStart(){
  if(!running||paused||gameOver)return;
  Sound.init();
- if(ball&&!ball.active){charging=true;charge=0;setHUD();}
+ // Consente di ricaricare se la sfera è ancora ferma sul pistone nella corsia di lancio
+ if(ball && !ball.inPlay && (!ball.active || (ball.x > 356 && ball.y > 610 && Math.abs(ball.vy) < 0.8))){
+  ball.active = false;
+  ball.vx = 0;
+  ball.vy = 0;
+  charging = true;
+  charge = 0;
+  setHUD();
+ }
 }
 
 function launchEnd(){
  if(!running||paused||gameOver||!ball||ball.active||!charging)return;
- const power=Math.max(17,Math.min(25,17+charge*0.11));
- Sound.playLaunch(charge/100);
- ball.x=373;ball.y=635;
- ball.vx=0;ball.vy=-power;
- ball.inPlay=false;
- ball.active=true;charging=false;charge=0;setHUD();
+ const ratio = charge / 100;
+ // Tocco minimo (0%): velocità 3.2 (non esce dalla corsia)
+ // ~60%: velocità ~16.5 (supera l'arco superiore)
+ // 100% (fondo corsa): velocità 24.5 (spinta massima)
+ const power = 3.2 + Math.pow(ratio, 0.92) * 21.3;
+ Sound.playLaunch(ratio);
+ ball.x = 373;
+ ball.y = 635 + charge * 0.32;
+ ball.vx = 0;
+ ball.vy = -power;
+ ball.inPlay = false;
+ ball.active = true;
+ charging = false;
+ charge = 0;
+ setHUD();
 }
 
 function segCollision(b,x1,y1,x2,y2,radius=4,restitution=.76){
@@ -1046,8 +1060,10 @@ function update(dt){
 
  if(!ball)return;
  if(!ball.active){
-  if(charging)charge=Math.min(100,charge+dt*85);
-  ball.x=373;ball.y=635-charge*0.02;
+  // Compressione progressiva: circa 1.4 secondi per arrivare al 100% (fondo corsa)
+  if(charging)charge=Math.min(100,charge+dt*72);
+  ball.x=373;
+  ball.y=635+charge*0.32;
   return;
  }
 
@@ -1060,6 +1076,23 @@ function update(dt){
   ball.vy*=Math.pow(0.9985,step*60);
   ball.x+=ball.vx*step*60;
   ball.y+=ball.vy*step*60;
+
+  // Appoggio sul pistone nella corsia di lancio se il tiro era corto
+  if(!ball.inPlay && ball.x > 356 && ball.y >= 635){
+   ball.y = 635;
+   ball.x = 373;
+   ball.vx = 0;
+   if(ball.vy > 0){
+    ball.vy = ball.vy > 2.2 ? -ball.vy * 0.25 : 0;
+   }
+   if(Math.abs(ball.vy) < 0.25){
+    ball.vy = 0;
+    ball.active = false;
+    ball.trail = [];
+    setHUD();
+    break;
+   }
+  }
 
   if(!ball.inPlay && ball.x < 340 && ball.y < 140){
    ball.inPlay=true;
@@ -1114,7 +1147,7 @@ function update(dt){
   });
 
   const speed=Math.hypot(ball.vx,ball.vy);
-  if(speed>24){ball.vx*=24/speed;ball.vy*=24/speed}
+  if(speed>25){ball.vx*=25/speed;ball.vy*=25/speed}
 
   if(ball.y>H+20){loseBall();return}
  }
@@ -1170,8 +1203,9 @@ function draw(){
  }
 
  ctx.fillStyle='rgba(12, 20, 16, 0.72)';
- ctx.fillRect(354,135,38,525);
+ ctx.fillRect(354,135,38,585);
 
+ // Pistone e molla compressibile (corsa 32px fino a fondo corsa)
  const compress=charge*0.32;
  ctx.fillStyle='#bd9453';ctx.fillRect(361,685,24,22);
  ctx.fillStyle='#e6c57f';ctx.fillRect(367,646+compress,12,39-compress);
@@ -1274,7 +1308,9 @@ function draw(){
  if(charging){
   ctx.save();
   ctx.shadowColor='#000';ctx.shadowBlur=4;
-  ctx.fillStyle='#f0d18a';ctx.font='bold 10px "Courier New"';ctx.textAlign='center';ctx.fillText('PRESSIONE '+Math.round(charge)+'%',372,565);
+  ctx.fillStyle=charge>=99?'#8ef59b':'#f0d18a';
+  ctx.font='bold 10px "Courier New"';ctx.textAlign='center';
+  ctx.fillText('PRESSIONE '+Math.round(charge)+'%',372,565);
   ctx.restore();
  }
  ctx.restore();
@@ -1395,7 +1431,7 @@ window.addEventListener('keydown',e=>{
   triggerNudge('right');
  } else if(e.code==='Space' || e.key===' '){
   if(!running) startGame();
-  else if(ball && !ball.active) launchStart();
+  else if(ball && !ball.inPlay && (!ball.active || (ball.x > 356 && ball.y > 610 && Math.abs(ball.vy) < 0.8))) launchStart();
   else triggerNudge('up');
  }
 
