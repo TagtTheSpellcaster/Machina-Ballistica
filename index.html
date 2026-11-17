@@ -71,7 +71,7 @@ canvas#game{display:block;width:100%;height:100%;background:#121f18;touch-action
  display:flex;
  flex-direction:column;
  justify-content:space-between;
- gap:8px;
+ gap:7px;
  flex-shrink:0;
 }
 
@@ -224,7 +224,7 @@ button.muted{opacity:0.55;filter:grayscale(0.4)}
 #launch{touch-action:none;user-select:none;-webkit-user-select:none}
 
 @media (max-width: 759px) {
- .side-panel{gap:5px}
+ .side-panel{gap:4px}
  .panel-plate{padding:5px 6px}
  .plate-title{display:none}
  .gauges-row{max-width:270px;margin:0 auto}
@@ -252,9 +252,21 @@ button.muted{opacity:0.55;filter:grayscale(0.4)}
  border:1px solid #6e4d29;
  padding:6px;
 }
+
+.bottom-credits{
+ display:flex;
+ flex-direction:column;
+ gap:3px;
+}
+.music-credit{
+ text-align:center;
+ color:#c4a676;
+ font:8px "Courier New",monospace;
+ letter-spacing:0.4px;
+}
 footer{
  border-top:2px double #987346;
- padding-top:5px;
+ padding-top:4px;
  display:flex;
  justify-content:space-between;
  gap:8px;
@@ -333,7 +345,10 @@ footer{
    <strong>X</strong> : Nudge SX · <strong>.</strong> : Nudge DX · <strong>SPAZIO</strong> : Nudge Alto
   </div>
 
-  <footer><span>OFFICINA ENIGMI · N° 002</span><span>1894</span></footer>
+  <div class="bottom-credits">
+   <div class="music-credit">Music by Joe Baxter-Webb (BossLevelVGM)</div>
+   <footer><span>OFFICINA ENIGMI · N° 002</span><span>1894</span></footer>
+  </div>
  </aside>
 </main>
 
@@ -373,7 +388,6 @@ function drawAnalogDial(gCtx, size, value, maxVal, isRecord = false) {
  const cx = size / 2, cy = size / 2, r = size * 0.44;
  gCtx.clearRect(0, 0, size, size);
 
- // Ghiera esterna in ottone
  const brassGrad = gCtx.createLinearGradient(0, 0, size, size);
  brassGrad.addColorStop(0, '#f5d996');
  brassGrad.addColorStop(0.5, '#a87938');
@@ -383,7 +397,6 @@ function drawAnalogDial(gCtx, size, value, maxVal, isRecord = false) {
  gCtx.arc(cx, cy, r + size * 0.05, 0, Math.PI * 2);
  gCtx.fill();
 
- // Quadrante interno in pergamena anticata
  const faceGrad = gCtx.createRadialGradient(cx - r*0.2, cy - r*0.2, r*0.1, cx, cy, r);
  faceGrad.addColorStop(0, '#fbf1dc');
  faceGrad.addColorStop(0.8, '#e3cfa6');
@@ -421,7 +434,6 @@ function drawAnalogDial(gCtx, size, value, maxVal, isRecord = false) {
   gCtx.fillText(label, cx + cos * (r * 0.56), cy + sin * (r * 0.56));
  }
 
- // Finestrella meccanica in basso con cifra perfettamente centrata verticalmente
  if (!isRecord) {
   const digit = Math.floor(value + 0.05) % 10;
   const boxW = size * 0.25;
@@ -440,12 +452,10 @@ function drawAnalogDial(gCtx, size, value, maxVal, isRecord = false) {
   gCtx.textAlign = 'center';
   gCtx.textBaseline = 'middle';
   gCtx.font = `bold ${Math.round(size * 0.145)}px "Courier New", monospace`;
-  // +1.2 px compensa l'offset ottico del glifo maiuscolo/numerico Courier
   gCtx.fillText(String(digit), cx, boxCenterY + 1.2);
   gCtx.restore();
  }
 
- // Lancetta brunita
  const clamped = Math.max(0, Math.min(maxVal, value));
  const needleAng = startAng + (clamped / maxVal) * sweep;
  gCtx.save();
@@ -468,7 +478,6 @@ function drawAnalogDial(gCtx, size, value, maxVal, isRecord = false) {
  gCtx.fill();
  gCtx.restore();
 
- // Perno centrale in ottone
  gCtx.fillStyle = '#c49a55';
  gCtx.strokeStyle = '#2b1c0e';
  gCtx.lineWidth = 1.2;
@@ -503,13 +512,26 @@ function updateGauges(dt) {
  drawAnalogDial(bestGauge.ctx, bestGauge.canvas.width, bestGauge.currentVal, 9, true);
 }
 
-/* ================= MOTORE AUDIO STEAMPUNK (SFX + MUSICA SEPARATI) ================= */
+/* ================= MOTORE AUDIO: MP3 BGM + EFFETTI PROCEDURALI ================= */
 const Sound = (() => {
  let ctxAudio = null;
  let sfxEnabled = true;
  let bgmEnabled = true;
+
+ // Traccia musicale esterna in loop (victorianaloop.mp3)
+ const bgmAudio = new Audio('victorianaloop.mp3');
+ bgmAudio.loop = true;
+ bgmAudio.preload = 'auto';
+ bgmAudio.volume = 0.42;
+
+ // Fallback procedurale nel caso il file MP3 non sia presente nella cartella
+ let bgmFallbackFailed = false;
  let bgmTimer = null;
  let stepIdx = 0;
+
+ bgmAudio.addEventListener('error', () => {
+  bgmFallbackFailed = true;
+ });
 
  function init() {
   if (!ctxAudio) {
@@ -528,8 +550,11 @@ const Sound = (() => {
 
  function toggleBGM() {
   bgmEnabled = !bgmEnabled;
-  if (!bgmEnabled) stopBGM();
-  else if (running && !paused) startBGM();
+  if (!bgmEnabled) {
+   stopBGM();
+  } else if (running && !paused) {
+   startBGM();
+  }
   return bgmEnabled;
  }
 
@@ -725,10 +750,9 @@ const Sound = (() => {
   });
  }
 
- function startBGM() {
-  if (!bgmEnabled) return;
+ function startFallbackBGM() {
   init();
-  stopBGM();
+  if (bgmTimer) clearInterval(bgmTimer);
   const bassNotes = [73.42, 110.00, 110.00, 87.31, 110.00, 110.00, 73.42, 110.00, 110.00, 69.30, 110.00, 110.00];
   const bellNotes = [587.33, 0, 698.46, 880.00, 0, 932.33, 880.00, 698.46, 659.25, 554.37, 0, 587.33];
 
@@ -764,27 +788,40 @@ const Sound = (() => {
     osc.start(now);
     osc.stop(now + 0.34);
    }
-
-   if (idx % 3 === 0) {
-    playNoise(0.025, 3200, 'highpass', 0.022, null, true);
-   }
-   if (idx === 9) {
-    playNoise(0.14, 1100, 'bandpass', 0.03, 500, true);
-   }
-
    stepIdx++;
   }, 240);
  }
 
+ function startBGM() {
+  if (!bgmEnabled) return;
+  if (bgmFallbackFailed) {
+   startFallbackBGM();
+   return;
+  }
+  const playPromise = bgmAudio.play();
+  if (playPromise !== undefined) {
+   playPromise.catch(() => {
+    // Se il file non è raggiungibile o bloccato, attiva il sintetizzatore di riserva
+    startFallbackBGM();
+   });
+  }
+ }
+
  function stopBGM() {
+  bgmAudio.pause();
   if (bgmTimer) {
    clearInterval(bgmTimer);
    bgmTimer = null;
   }
  }
 
+ function resetBGM() {
+  bgmAudio.currentTime = 0;
+  stepIdx = 0;
+ }
+
  return {
-  init, toggleSFX, toggleBGM, startBGM, stopBGM,
+  init, toggleSFX, toggleBGM, startBGM, stopBGM, resetBGM,
   playBumper, playTarget, playSlingshot, playFlipper, playLaunch, playNudge, playDanger, playTilt
  };
 })();
@@ -863,6 +900,7 @@ function startGame(){
  Sound.init();
  score=0;balls=3;gameOver=false;paused=false;running=true;newBall();
  $('overlay').classList.add('hidden');
+ Sound.resetBGM();
  Sound.startBGM();
  setHUD();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);
 }
@@ -884,30 +922,24 @@ function award(n,x,y){
  setHUD();
 }
 
-/* ================= LOGICA ARCADE NUDGE & TILT ================= */
-// dir: 'left' (spinta da sinistra verso destra), 'right' (da destra verso sinistra), 'up' (dal basso verso l'alto)
 function triggerNudge(dir){
  if(!running || paused || gameOver || !ball || !ball.active || isTilted) return;
  if(nudgeCooldown > 0) return;
 
- nudgeCooldown = 0.20; // Cooldown anti-spam 0.2s
- shakeTimer = shakeDuration; // Animazione elastica 0.13s
+ nudgeCooldown = 0.20;
+ shakeTimer = shakeDuration;
 
- // Impulso al tavolo e impulso inerziale opposto/relativo alla pallina
  if(dir === 'left'){
-  // Spingo il tavolo da sinistra verso destra -> la pallina riceve un colpo relativo verso sinistra
   shakeX = 8;
   shakeY = -2;
   ball.vx -= 3.6;
   ball.vy -= 1.2;
  } else if(dir === 'right'){
-  // Spingo il tavolo da destra verso sinistra -> la pallina riceve un colpo relativo verso destra
   shakeX = -8;
   shakeY = -2;
   ball.vx += 3.6;
   ball.vy -= 1.2;
  } else {
-  // Spingo il tavolo dal basso verso l'alto -> impulso verticale
   shakeX = 0;
   shakeY = -8;
   ball.vy -= 4.2;
@@ -916,7 +948,6 @@ function triggerNudge(dir){
 
  Sound.playNudge();
 
- // Accumulo instabilità (+35 per ogni impulso, soglia max 100)
  const prevMeter = tiltMeter;
  tiltMeter = Math.min(100, tiltMeter + 35);
 
@@ -969,7 +1000,6 @@ function circleHit(b,o){
   const nx=dx/d,ny=dy/d;b.x=o.x+nx*min;b.y=o.y+ny*min;
   const vn=b.vx*nx+b.vy*ny;
   if(vn<0){
-   // Se in TILT, rimbalzo passivo senza impulso attivo né punti
    const bounceMult = isTilted ? 1.35 : 1.8;
    b.vx-=(bounceMult*vn)*nx;
    b.vy-=(bounceMult*vn)*ny;
@@ -1000,7 +1030,6 @@ function update(dt){
   if(shakeTimer === 0){ shakeX = 0; shakeY = 0; }
  }
 
- // Recupero costante del tiltMeter: -20 punti al secondo fino a 0
  if(!isTilted && tiltMeter > 0){
   tiltMeter = Math.max(0, tiltMeter - 20 * dt);
  }
@@ -1121,10 +1150,9 @@ function gear(x,y,r,teeth=12){
 
 function draw(){
  ctx.save();
- // Animazione elastica a molla del tavolo su Nudge
  if(shakeTimer > 0){
-  const progress = shakeTimer / shakeDuration; // da 1 a 0
-  const spring = Math.sin(progress * Math.PI); // picco morbido con ritorno a 0
+  const progress = shakeTimer / shakeDuration;
+  const spring = Math.sin(progress * Math.PI);
   ctx.translate(shakeX * spring, shakeY * spring);
  }
  ctx.clearRect(-20,-20,W+40,H+40);
@@ -1225,7 +1253,6 @@ function draw(){
   ctx.restore();
  }
 
- // Avviso DANGER (> 65) o TILT (>= 100) sul tavolo
  if(isTilted){
   ctx.fillStyle='rgba(20,8,6,0.85)';
   ctx.fillRect(58,358,280,72);
@@ -1337,7 +1364,6 @@ $('bgmBtn').addEventListener('click',()=>{
  $('bgmBtn').classList.toggle('muted',!isOn);
 });
 
-/* ================= GESTIONE TASTIERA (FLIPPER + NUDGE 3 DIREZIONI) ================= */
 const heldKeys = new Set();
 
 function syncFlippersFromKeys(){
@@ -1352,7 +1378,6 @@ window.addEventListener('keydown',e=>{
  if(trackedCodes.includes(e.code) || [' ','/','-','z','Z','x','X','.'].includes(e.key)){
   e.preventDefault();
  }
- // Ignora completamente l'auto-repeat della tastiera: il Nudge scatta solo su JustPressed
  if(e.repeat) return;
 
  Sound.init();
@@ -1364,7 +1389,6 @@ window.addEventListener('keydown',e=>{
   launchStart();
  }
 
- // Nudge 3 direzioni: X (da sinistra), . (da destra), Spazio (dal basso)
  if(e.code==='KeyX'){
   triggerNudge('left');
  } else if(e.code==='Period' || e.key==='.'){
