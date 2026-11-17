@@ -1,12 +1,14 @@
 # Machina Ballistica — Officina degli Enigmi (Macchina N° 002)
 
-![Version](https://img.shields.io/badge/version-1.7-c49a55?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.9-c49a55?style=flat-square)
 ![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-344b3a?style=flat-square)
 ![HTML5](https://img.shields.io/badge/HTML5-Canvas-21170f?style=flat-square)
 ![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-795027?style=flat-square)
 ![Web Audio API](https://img.shields.io/badge/Audio-Web_Audio_API-a77c42?style=flat-square)
 
 Simulatore di flipper arcade in stile steampunk realizzato in HTML5 Canvas e JavaScript puro, senza dipendenze esterne. Il progetto riproduce la fisica di un tavolo meccanico con lancio a molla caricabile, respingenti, bersagli a scatto, slingshot, sistema di nudge multidirezionale con protezione Tilt, sintesi sonora procedurale e plancia strumentazione a manometri analogici.
+
+[Puoi giocarci qui](https://tagtthespellcaster.github.io/Machina-Ballistica/)
 
 ## Caratteristiche principali
 
